@@ -39,35 +39,55 @@ class EloquentTrackingRepository implements TrackingRepository
     }
 
     public function getDataTracking($token) {
-        $client = new Client([
-            'base_uri' => 'https://apis-sandbox.fedex.com/',
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token,
-                'X-locale' => 'en_US',
-                'Content-Type' => 'application/json',
-            ],
-        ]);
-
-        $json = '{
-            "trackingInfo": [
-                {
-                    "trackingNumberInfo": {
-                        "trackingNumber": "123456789012"
+        try {
+            $client = new Client([
+                'base_uri' => 'https://apis-sandbox.fedex.com/',
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'X-locale' => 'en_US',
+                    'Content-Type' => 'application/json',
+                ],
+            ]);
+    
+            $json = '{
+                "trackingInfo": [
+                    {
+                        "trackingNumberInfo": {
+                            "trackingNumber": "123456789012"
+                        }
                     }
-                }
-            ],
-            "includeDetailedScans": true
-        }';
-        
-        $data = json_decode($json, true);
-          
-          
-        $response = $client->post('track/v1/trackingnumbers', [
-            'json' => $data,
-        ]);
+                ],
+                "includeDetailedScans": true
+            }';
+            
+            $data = json_decode($json, true);
+              
+              
+            $response = $client->post('track/v1/trackingnumbers', [
+                'json' => $data,
+            ]);
 
-        return json_decode($response->getBody(), true);
+            $statusCode = $response->getStatusCode();
+            if ($statusCode == 200) {
+                $jsonResponse = json_decode($response->getBody(), true);
 
+                $dataTracking = [
+                    'tracking_number' => '123456789012',
+                    'data' => json_encode($jsonResponse)
+                ];
+                $this->model->create($dataTracking);
+
+                return $jsonResponse;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unexpected response from API',
+                ]);
+            }
+        } catch (RequestException $e) {
+            Log::error($e->getMessage());
+            return null;
+        }
     }
 
     public function __construct(Tracking $model)
